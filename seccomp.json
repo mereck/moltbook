@@ -1,0 +1,60 @@
+{
+  "defaultAction": "SCMP_ACT_ERRNO",
+  "defaultErrnoRet": 1,
+  "archMap": [
+    { "architecture": "SCMP_ARCH_X86_64", "subArchitectures": ["SCMP_ARCH_X86", "SCMP_ARCH_X32"] },
+    { "architecture": "SCMP_ARCH_AARCH64", "subArchitectures": [] }
+  ],
+  "syscalls": [
+    {
+      "names": [
+        "read", "write", "close", "fstat", "lseek", "mmap", "mprotect",
+        "munmap", "brk", "rt_sigaction", "rt_sigprocmask", "rt_sigreturn",
+        "ioctl", "pread64", "pwrite64", "readv", "writev",
+        "access", "pipe", "select", "sched_yield",
+        "mremap", "madvise", "dup", "dup2",
+        "nanosleep", "clock_nanosleep", "getpid", "getuid", "getgid",
+        "geteuid", "getegid", "getppid",
+        "socket", "connect", "sendto", "recvfrom", "sendmsg", "recvmsg",
+        "bind", "listen", "getsockname", "getpeername", "setsockopt",
+        "getsockopt", "poll", "ppoll",
+        "clone", "execve", "exit", "exit_group", "wait4",
+        "kill", "uname", "fcntl", "flock",
+        "fsync", "fdatasync", "getcwd",
+        "readlink", "stat", "lstat", "newfstatat",
+        "getdents", "getdents64",
+        "openat", "mkdirat", "unlinkat",
+        "set_tid_address", "set_robust_list",
+        "futex", "sched_getaffinity",
+        "clock_gettime", "clock_getres",
+        "epoll_create1", "epoll_ctl", "epoll_wait", "epoll_pwait",
+        "eventfd2", "pipe2", "dup3",
+        "getrandom", "memfd_create",
+        "statx", "rseq", "close_range",
+        "prlimit64", "arch_prctl",
+        "sigaltstack", "tgkill",
+        "getresuid", "getresgid",
+        "shutdown"
+      ],
+      "action": "SCMP_ACT_ALLOW"
+    },
+    {
+      "names": [
+        "ptrace", "process_vm_readv", "process_vm_writev",
+        "mount", "umount2", "pivot_root", "chroot",
+        "reboot", "swapon", "swapoff",
+        "init_module", "finit_module", "delete_module",
+        "kexec_load", "kexec_file_load",
+        "setns", "unshare",
+        "keyctl", "add_key", "request_key",
+        "bpf", "perf_event_open", "userfaultfd",
+        "acct", "settimeofday", "clock_settime",
+        "personality", "seccomp",
+        "kcmp", "lookup_dcookie",
+        "io_uring_setup", "io_uring_enter", "io_uring_register"
+      ],
+      "action": "SCMP_ACT_ERRNO",
+      "errnoRet": 1
+    }
+  ]
+}

@@ -1,0 +1,103 @@
+services:
+  # ── Firewall gateway ──────────────────────────────────────────
+  # The agent shares this container's network namespace, so all
+  # iptables OUTPUT rules here control the agent's egress too.
+  # Only moltbook.com (80/443) and the ollama container (11434)
+  # are permitted. Everything else is dropped.
+  firewall:
+    build: ./firewall
+    container_name: moltbook-firewall
+    cap_add:
+      - NET_ADMIN
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      sandbox_net:
+    volumes:
+      - ./firewall/allowed_hosts.txt:/etc/firewall/allowed_hosts.txt:ro
+    restart: unless-stopped
+
+  # ── LLM server (MonadGPT via Ollama) ──────────────────────────
+  # 17th-century language model. Runs on an internal network.
+  # The model is pulled on first boot and cached in a volume.
+  ollama:
+    image: ollama/ollama:latest
+    container_name: moltbook-ollama
+    networks:
+      sandbox_net:
+    volumes:
+      - ollama_data:/root/.ollama
+    mem_limit: 6g
+    cpus: "2.0"
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "ollama list >/dev/null 2>&1 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 10s
+
+  # ── Model puller (runs once, then exits) ──────────────────────
+  ollama-init:
+    image: ollama/ollama:latest
+    container_name: moltbook-ollama-init
+    depends_on:
+      ollama:
+        condition: service_healthy
+    networks:
+      sandbox_net:
+    entrypoint: ["sh", "-c", "ollama pull brxce/monadgpt -H http://ollama:11434"]
+    environment:
+      - OLLAMA_HOST=http://ollama:11434
+    restart: "no"
+
+  # ── Sandboxed agent ───────────────────────────────────────────
+  agent:
+    build: .
+    container_name: moltbook-agent
+    depends_on:
+      ollama-init:
+        condition: service_completed_successfully
+
+    # Share the firewall's network — iptables rules apply to agent
+    network_mode: "service:firewall"
+
+    # --- Resource limits ---
+    mem_limit: 256m
+    memswap_limit: 256m
+    cpus: "0.5"
+    pids_limit: 64
+
+    # --- Security hardening ---
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+      - seccomp=seccomp.json
+    cap_drop:
+      - ALL
+
+    # --- Writable tmpfs only ---
+    tmpfs:
+      - /tmp:noexec,nosuid,nodev,size=32m
+
+    # --- Environment ---
+    environment:
+      - PYTHONDONTWRITEBYTECODE=1
+      - PYTHONUNBUFFERED=1
+      - TARGET_URL=https://www.moltbook.com
+      - OLLAMA_URL=http://ollama:11434
+
+    restart: "no"
+
+volumes:
+  ollama_data:
+
+networks:
+  sandbox_net:
+    driver: bridge

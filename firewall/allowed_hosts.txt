@@ -1,0 +1,6 @@
+# Hosts the agent is allowed to connect to.
+# One host per line. Lines starting with # are comments.
+# The firewall container resolves these to IPs and blocks everything else.
+
+www.moltbook.com
+moltbook.com
