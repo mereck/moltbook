@@ -2,8 +2,8 @@ services:
   # ── Firewall gateway ──────────────────────────────────────────
   # The agent shares this container's network namespace, so all
   # iptables OUTPUT rules here control the agent's egress too.
-  # Only moltbook.com (80/443) and the ollama container (11434)
-  # are permitted. Everything else is dropped.
+  # Default policy is DROP from the instant the container starts;
+  # allow rules are then added for moltbook.com and ollama only.
   firewall:
     build: ./firewall
     container_name: moltbook-firewall
@@ -17,18 +17,31 @@ services:
       sandbox_net:
     volumes:
       - ./firewall/allowed_hosts.txt:/etc/firewall/allowed_hosts.txt:ro
+    healthcheck:
+      test: ["CMD-SHELL", "iptables -L OUTPUT -n | grep -q DROP"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 3s
     restart: unless-stopped
 
   # ── LLM server (MonadGPT via Ollama) ──────────────────────────
-  # 17th-century language model. Runs on an internal network.
-  # The model is pulled on first boot and cached in a volume.
+  # 17th-century language model fine-tuned on 1400–1700 CE texts.
+  # NOTE: ollama has internet access on sandbox_net because it
+  # needs to pull the model on first boot. After the first run the
+  # model is cached in the ollama_data volume. The agent cannot
+  # abuse ollama's internet access — the agent's own egress is
+  # locked down by the firewall's iptables OUTPUT chain.
   ollama:
-    image: ollama/ollama:latest
+    image: ollama/ollama:0.15.4
     container_name: moltbook-ollama
     networks:
       sandbox_net:
     volumes:
       - ollama_data:/root/.ollama
+    read_only: true
+    tmpfs:
+      - /tmp:noexec,nosuid,nodev,size=256m
     mem_limit: 6g
     cpus: "2.0"
     security_opt:
@@ -45,16 +58,16 @@ services:
 
   # ── Model puller (runs once, then exits) ──────────────────────
   ollama-init:
-    image: ollama/ollama:latest
+    image: ollama/ollama:0.15.4
     container_name: moltbook-ollama-init
     depends_on:
       ollama:
         condition: service_healthy
     networks:
       sandbox_net:
-    entrypoint: ["sh", "-c", "ollama pull brxce/monadgpt -H http://ollama:11434"]
     environment:
       - OLLAMA_HOST=http://ollama:11434
+    entrypoint: ["sh", "-c", "ollama pull brxce/monadgpt"]
     restart: "no"
 
   # ── Sandboxed agent ───────────────────────────────────────────

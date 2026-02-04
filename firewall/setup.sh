@@ -3,21 +3,24 @@ set -e
 
 ALLOWED_FILE="/etc/firewall/allowed_hosts.txt"
 
-echo "[firewall] configuring iptables egress rules..."
+# ── Default deny FIRST — closes the race window ──
+# The agent shares this network namespace, so setting DROP here
+# means the agent cannot send any traffic until allow rules exist.
+iptables -P OUTPUT DROP
 
-# ── Flush ──
-iptables -F OUTPUT
+# ── Loopback (needed for Docker DNS at 127.0.0.11) ──
+iptables -A OUTPUT -o lo -j ACCEPT
 
-# ── Always allow ──
-iptables -A OUTPUT -o lo -j ACCEPT                                   # loopback
-iptables -A OUTPUT -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT  # replies
+# ── Established/related replies ──
+iptables -A OUTPUT -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
 
-# ── Allow Docker DNS (127.0.0.11) ──
+# ── Docker embedded DNS ──
 iptables -A OUTPUT -d 127.0.0.11 -p udp --dport 53 -j ACCEPT
 iptables -A OUTPUT -d 127.0.0.11 -p tcp --dport 53 -j ACCEPT
 
-# ── Allow Ollama container (port 11434) ──
-# Resolve the 'ollama' hostname to its container IP
+echo "[firewall] default policy DROP — adding allow rules..."
+
+# ── Allow Ollama container (port 11434 only) ──
 OLLAMA_IP=$(getent hosts ollama 2>/dev/null | awk '{print $1}' | head -1)
 if [ -n "$OLLAMA_IP" ]; then
     echo "[firewall] allowing ollama: $OLLAMA_IP:11434"
@@ -27,6 +30,8 @@ else
 fi
 
 # ── Allow external hosts from allowlist (ports 80/443 only) ──
+# NOTE: IPs are resolved once at startup. If a host rotates IPs
+# (CDN, failover), restart the firewall container to re-resolve.
 while IFS= read -r host; do
     host=$(echo "$host" | sed 's/#.*//' | tr -d '[:space:]')
     [ -z "$host" ] && continue
@@ -39,11 +44,10 @@ while IFS= read -r host; do
     done
 done < "$ALLOWED_FILE"
 
-# ── Drop everything else ──
-iptables -A OUTPUT -j DROP
+# No final DROP rule needed — the chain policy is already DROP.
 
 echo ""
-echo "[firewall] OUTPUT rules:"
+echo "[firewall] OUTPUT chain:"
 iptables -L OUTPUT -n -v
 echo ""
 echo "[firewall] running — Ctrl+C to stop"

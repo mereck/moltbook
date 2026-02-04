@@ -16,7 +16,7 @@
         "nanosleep", "clock_nanosleep", "getpid", "getuid", "getgid",
         "geteuid", "getegid", "getppid",
         "socket", "connect", "sendto", "recvfrom", "sendmsg", "recvmsg",
-        "bind", "listen", "getsockname", "getpeername", "setsockopt",
+        "bind", "getsockname", "getpeername", "setsockopt",
         "getsockopt", "poll", "ppoll",
         "clone", "execve", "exit", "exit_group", "wait4",
         "kill", "uname", "fcntl", "flock",
@@ -37,24 +37,6 @@
         "shutdown"
       ],
       "action": "SCMP_ACT_ALLOW"
-    },
-    {
-      "names": [
-        "ptrace", "process_vm_readv", "process_vm_writev",
-        "mount", "umount2", "pivot_root", "chroot",
-        "reboot", "swapon", "swapoff",
-        "init_module", "finit_module", "delete_module",
-        "kexec_load", "kexec_file_load",
-        "setns", "unshare",
-        "keyctl", "add_key", "request_key",
-        "bpf", "perf_event_open", "userfaultfd",
-        "acct", "settimeofday", "clock_settime",
-        "personality", "seccomp",
-        "kcmp", "lookup_dcookie",
-        "io_uring_setup", "io_uring_enter", "io_uring_register"
-      ],
-      "action": "SCMP_ACT_ERRNO",
-      "errnoRet": 1
     }
   ]
 }

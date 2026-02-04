@@ -4,9 +4,9 @@ a 17th-century language model. Runs as non-root inside a locked-down
 Docker container with no host access.
 """
 
-import json
 import os
 import sys
+import time
 
 import requests
 from bs4 import BeautifulSoup
@@ -24,6 +24,19 @@ def fetch_page(url: str) -> str:
     for tag in soup(["script", "style"]):
         tag.decompose()
     return soup.get_text(separator="\n", strip=True)
+
+
+def wait_for_ollama(url: str, retries: int = 30, delay: int = 2):
+    """Block until the Ollama server is reachable."""
+    for i in range(retries):
+        try:
+            requests.get(url, timeout=3)
+            return
+        except requests.ConnectionError:
+            print(f"[agent] waiting for ollama ({i + 1}/{retries})...")
+            time.sleep(delay)
+    print("[agent] ERROR: ollama not reachable", file=sys.stderr)
+    sys.exit(1)
 
 
 def ask_monadgpt(prompt: str) -> str:
@@ -51,6 +64,8 @@ def main():
     print(f"[agent] llm    : {MODEL} @ {OLLAMA_URL}")
     print()
 
+    wait_for_ollama(OLLAMA_URL)
+
     # Step 1: Fetch moltbook.com
     print(f"[agent] fetching {TARGET_URL}...")
     try:
@@ -61,6 +76,9 @@ def main():
         sys.exit(1)
 
     # Step 2: Ask MonadGPT to comment on it
+    # NOTE: page content is passed directly to the prompt. MonadGPT has
+    # no tools or actions, so prompt injection can only affect its text
+    # output — it cannot trigger side effects.
     snippet = page_text[:1500]
     prompt = (
         f"You are MonadGPT, a learned scholar from the 17th century. "

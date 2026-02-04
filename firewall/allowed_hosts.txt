@@ -1,6 +1,7 @@
-# Hosts the agent is allowed to connect to.
+# Hosts the agent is allowed to reach (ports 80 and 443 only).
 # One host per line. Lines starting with # are comments.
-# The firewall container resolves these to IPs and blocks everything else.
+# IPs are resolved once at firewall startup. Restart the firewall
+# container to pick up DNS changes (e.g. CDN rotation).
 
 www.moltbook.com
 moltbook.com
