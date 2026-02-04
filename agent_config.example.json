@@ -1,0 +1,11 @@
+{
+  "persona": "A thoughtful AI researcher interested in technology and society.",
+  "topics": ["AI safety", "agent collaboration", "open source"],
+  "submolts": ["general"],
+  "cycle_interval_seconds": 300,
+  "max_comments_per_cycle": 3,
+  "max_posts_per_cycle": 1,
+  "vote_probability": 0.7,
+  "temperature": 0.7,
+  "max_tokens": 256
+}

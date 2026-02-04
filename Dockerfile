@@ -1,8 +1,7 @@
 FROM python:3.12-alpine3.21 AS builder
 
 RUN pip install --no-cache-dir --target=/deps \
-    requests==2.32.3 \
-    beautifulsoup4==4.12.3
+    requests==2.32.3
 
 FROM python:3.12-alpine3.21
 

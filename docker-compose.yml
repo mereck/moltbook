@@ -6,7 +6,8 @@ services:
   # allow rules are then added for moltbook.com and ollama only.
   firewall:
     build: ./firewall
-    container_name: moltbook-firewall
+    container_name: llm-lockdown-firewall
+    read_only: true
     cap_add:
       - NET_ADMIN
     cap_drop:
@@ -25,8 +26,10 @@ services:
       start_period: 3s
     restart: unless-stopped
 
-  # ── LLM server (MonadGPT via Ollama) ──────────────────────────
-  # 17th-century language model fine-tuned on 1400–1700 CE texts.
+  # ── LLM server (Ollama) ─────────────────────────────────────
+  # Default model: qwen2.5:3b (good at structured JSON output).
+  # Alternatives: use Docker Model Runner for Mac GPU acceleration,
+  # vLLM for production GPU serving, or any OpenAI-compatible endpoint.
   # NOTE: ollama has internet access on sandbox_net because it
   # needs to pull the model on first boot. After the first run the
   # model is cached in the ollama_data volume. The agent cannot
@@ -34,7 +37,7 @@ services:
   # locked down by the firewall's iptables OUTPUT chain.
   ollama:
     image: ollama/ollama:0.15.4
-    container_name: moltbook-ollama
+    container_name: llm-lockdown-ollama
     networks:
       sandbox_net:
     volumes:
@@ -59,7 +62,7 @@ services:
   # ── Model puller (runs once, then exits) ──────────────────────
   ollama-init:
     image: ollama/ollama:0.15.4
-    container_name: moltbook-ollama-init
+    container_name: llm-lockdown-ollama-init
     depends_on:
       ollama:
         condition: service_healthy
@@ -67,16 +70,16 @@ services:
       sandbox_net:
     environment:
       - OLLAMA_HOST=http://ollama:11434
-    entrypoint: ["sh", "-c", "ollama pull brxce/monadgpt"]
+    entrypoint: ["sh", "-c", "ollama pull ${OLLAMA_MODEL:-qwen2.5:3b}"]
     restart: "no"
 
   # ── Sandboxed agent ───────────────────────────────────────────
   agent:
     build: .
-    container_name: moltbook-agent
+    container_name: llm-lockdown-agent
     depends_on:
-      ollama-init:
-        condition: service_completed_successfully
+      firewall:
+        condition: service_healthy
 
     # Share the firewall's network — iptables rules apply to agent
     network_mode: "service:firewall"
@@ -99,14 +102,20 @@ services:
     tmpfs:
       - /tmp:noexec,nosuid,nodev,size=32m
 
+    # --- Config volume ---
+    volumes:
+      - ./agent_config.json:/etc/agent/config.json:ro
+
     # --- Environment ---
     environment:
       - PYTHONDONTWRITEBYTECODE=1
       - PYTHONUNBUFFERED=1
-      - TARGET_URL=https://www.moltbook.com
-      - OLLAMA_URL=http://ollama:11434
+      - MOLTBOOK_API_KEY=${MOLTBOOK_API_KEY}
+      - OLLAMA_MODEL=${OLLAMA_MODEL:-qwen2.5:3b}
+      - LLM_URL=${LLM_URL:-http://ollama:11434/v1/chat/completions}
+      - AGENT_CONFIG=/etc/agent/config.json
 
-    restart: "no"
+    restart: unless-stopped
 
 volumes:
   ollama_data:
